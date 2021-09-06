@@ -12,7 +12,7 @@ export default function makeCallback(controller) {
         controller(httpRequest)
         .then(httpResponse => {
             res.type('json')
-            res.status(httpResponse.statusCode).send(httpResponse.body)
+            res.status(httpResponse.statusCode).send(httpResponse)
         })
         .catch(e => {
             console.log(e)

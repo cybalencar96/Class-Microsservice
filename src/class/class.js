@@ -27,7 +27,6 @@ export default function buildMakeClass({ Id }) {
             throw new Error('Class must have class dates objects')
         } else {
             classDates.map(classDate => {
-                console.log(classDate.weekday,classDate.hasClass,classDate.startHour,classDate.endHour)
                 if (!classDate.weekday || !classDate.hasOwnProperty('hasClass')  || !classDate.startHour || !classDate.endHour) {
                     throw new Error('classDate objects must have attributes weekday, hasClass, startHour and endHour')
                 }

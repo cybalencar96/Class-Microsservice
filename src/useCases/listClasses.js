@@ -12,8 +12,8 @@ export default function makeListClasses ({ classesDb }) {
             const result = await classesDb.findByTeacherId(searchParam);
             return result;
         }
-        if (type === 'byClassName') {
-            const result = await classesDb.findByClassSubject(searchParam);
+        if (type === 'bySubject') {
+            const result = await classesDb.findBySubject(searchParam);
             return result;
         }
     }

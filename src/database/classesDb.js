@@ -46,7 +46,7 @@ export default function makeClassesDb({makeDb}) {
     }
 
     async function findByTeacherId(searchInfo) {
-        const db = makeDb();
+        const db = await makeDb();
         const result = await db.collection('classes').find({teacherId: searchInfo}).toArray();
         if (result.length === 0) {
             return null
@@ -57,6 +57,9 @@ export default function makeClassesDb({makeDb}) {
     async function findBySubject(searchInfo) {
         const db = await makeDb();
         const result = await db.collection('classes').find({subject: {$regex: searchInfo, $options: "$i"}}).sort({subject:1}).toArray();
+        if (result.length === 0) {
+            return null
+        }
         return result;
     }
 
@@ -71,7 +74,6 @@ export default function makeClassesDb({makeDb}) {
 
     async function insert({...classs }) {
         const db = await makeDb();
-        console.log(classs)
         const newClass = {
             _id: classs.getId(),
             teacherId: classs.getTeacherId(),
@@ -83,6 +85,7 @@ export default function makeClassesDb({makeDb}) {
             students: classs.getStudents()
         }
         const result = await db.collection('classes').insertOne(newClass)
-        return result;
+        const classInserted = await db.collection('classes').find({_id:result.insertedId}).toArray();
+        return classInserted[0];
     }
 }
