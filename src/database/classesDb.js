@@ -8,7 +8,8 @@ export default function makeClassesDb({makeDb}) {
         findBySubject,
         findByTeacherAndSubject,
         insert,
-        findAndDeleteClass
+        findAndDeleteClass,
+        updateClass
     });
 
     async function findAll() {
@@ -26,8 +27,8 @@ export default function makeClassesDb({makeDb}) {
             let partialResult = {};
             let result = [];
 
-            await Promise.all(searchInfo.map(async (id) => {
-                partialResult = await db.collection('classes').find({_id: id});
+            await Promise.all(searchInfo.map(async (_id) => {
+                partialResult = await db.collection('classes').find({_id: _id});
                 const found = await partialResult.toArray();
                 result.push(found[0]);                
             }));
@@ -96,7 +97,6 @@ export default function makeClassesDb({makeDb}) {
         const allClasses = await db.collection('classes').find().sort({subject:1}).toArray();
         
         if (acknowledged && deletedCount > 0) {
-            console.log(allClasses)
             return {
                 isDeleted: true,
                 text: "Class is deleted.",
@@ -116,6 +116,48 @@ export default function makeClassesDb({makeDb}) {
                 isDeleted: false,
                 text: "Unknown error has occured on gateway",
                 body: allClasses
+            }
+        }
+    }
+
+    async function updateClass(editedClass) {
+        const db = await makeDb();
+        const updateDoc = {
+            $set: {
+                teacherId: editedClass.getTeacherId(),
+                maxStudents: editedClass.getMaxStudents(),
+                price: editedClass.getPrice(),
+                _id: editedClass.getId(),
+                subject: editedClass.getSubject(),
+                students: editedClass.getStudents(),
+                classDates: editedClass.getClassDates()
+            }
+        }
+        const {
+            acknowledged,
+            modifiedCount,
+            matchedCount
+        } = await db.collection('classes').updateOne({_id: editedClass.getId()},updateDoc)
+        
+        const newEditedClass = await db.collection('classes').find({_id: editedClass.getId()}).toArray();
+        
+        if (modifiedCount === 1) {
+            return {
+                isModified: true,
+                text: "Class update successful",
+                body: newEditedClass
+            }
+        } else if (matchedCount === 1) {
+            return {
+                isModified: false,
+                text: "Class found but not updated, no difference found",
+                body: newEditedClass
+            }
+        } else {
+            return {
+                isModified: false,
+                text: "Class not found",
+                body: null
             }
         }
     }

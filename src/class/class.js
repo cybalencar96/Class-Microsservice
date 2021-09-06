@@ -4,17 +4,20 @@ export default function buildMakeClass({ Id }) {
         teacherId,
         maxStudents = 20,
         price = 0,
-        id = Id.makeId(),
+        _id = Id.makeId(),
         createdAt = Date.now(),
         subject,
         students = [],
         classDates
     }) {
-        if (!Id.isValidId(id)) {
+        if (!Id.isValidId(_id)) {
             throw new Error('Class must have valid id');
         }
         if (!teacherId) {
             throw new Error('Class must have a teacherId')
+        }
+        if (maxStudents < 1) {
+            throw new Error ("maxStudents can't be less than 1.")
         }
         if (!Id.isValidId(teacherId)) {
             //TODO: verificar se o teacherId existe
@@ -36,7 +39,7 @@ export default function buildMakeClass({ Id }) {
         return Object.freeze({
             getTeacherId: () => teacherId,
             getCreatedAt: () => createdAt,
-            getId: () => id,
+            getId: () => _id,
             getMaxStudents: () => maxStudents,
             getPrice: () => price,
             getSubject: () => subject,
@@ -44,14 +47,4 @@ export default function buildMakeClass({ Id }) {
             getStudents: () => students
         })
     }
-}
-
-function isHexa(str) {
-    const hexa = "0123456789abcdef";
-    for (let i = 0; i < str.length; i++) {
-        if (!hexa.includes(str[i])) {
-            return false;
-        }
-    }
-    return true;
 }

@@ -1,4 +1,4 @@
-import Id from "../Id/index.js"
+import Id from "../Id/index.js";
 
 export default function makeGetClasses({ listClasses, Id }) {
     return async function getClasses(httpRequest) {
