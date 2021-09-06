@@ -7,7 +7,8 @@ export default function makeClassesDb({makeDb}) {
         findByTeacherId,
         findBySubject,
         findByTeacherAndSubject,
-        insert
+        insert,
+        findAndDeleteClass
     });
 
     async function findAll() {
@@ -87,5 +88,35 @@ export default function makeClassesDb({makeDb}) {
         const result = await db.collection('classes').insertOne(newClass)
         const classInserted = await db.collection('classes').find({_id:result.insertedId}).toArray();
         return classInserted[0];
+    }
+
+    async function findAndDeleteClass(classId) {
+        const db = await makeDb();
+        const { acknowledged, deletedCount } = await db.collection('classes').deleteOne({_id: classId});
+        const allClasses = await db.collection('classes').find().sort({subject:1}).toArray();
+        
+        if (acknowledged && deletedCount > 0) {
+            console.log(allClasses)
+            return {
+                isDeleted: true,
+                text: "Class is deleted.",
+                body: allClasses
+            }
+        }
+
+        if (acknowledged && deletedCount === 0) {
+            return {
+                isDeleted: false,
+                text: "Class doesn't exists. It may has been deleted already.",
+                body: allClasses
+            }
+        }
+        if (!acknowledged) {
+            return {
+                isDeleted: false,
+                text: "Unknown error has occured on gateway",
+                body: allClasses
+            }
+        }
     }
 }
