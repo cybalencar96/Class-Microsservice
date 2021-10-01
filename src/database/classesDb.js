@@ -1,4 +1,5 @@
 import Id from "../Id/index.js"
+import { validateUser,getUser,updateUserClasses } from "../services/usersApi.js";
 
 export default function makeClassesDb({makeDb}) {
     return Object.freeze({
@@ -9,7 +10,8 @@ export default function makeClassesDb({makeDb}) {
         findByTeacherAndSubject,
         insert,
         findAndDeleteClass,
-        updateClass
+        updateClass,
+        classReservation
     });
 
     async function findAll() {
@@ -86,13 +88,29 @@ export default function makeClassesDb({makeDb}) {
             classDates: classs.getClassDates(),
             students: classs.getStudents()
         }
+
+        const updateRes = await updateUserClasses(newClass.teacherId,'add','teaching',newClass._id)
+        const userUpdate = updateRes.data
+        if (userUpdate.statusCode >= 400) {
+            throw new Error ('erro na inserção da classe no teaching do user na API de users')
+        }
+
         const result = await db.collection('classes').insertOne(newClass)
+        
         const classInserted = await db.collection('classes').find({_id:result.insertedId}).toArray();
         return classInserted[0];
     }
 
     async function findAndDeleteClass(classId) {
         const db = await makeDb();
+        const classs = await db.collection('classes').find({"_id": classId}).toArray();
+        
+        const updateTeacherRes = await updateUserClasses(classs[0].teacherId,'remove','teaching',classId)
+        if (updateTeacherRes.data.statusCode >= 400) throw new Error ('erro ao apagar classe')
+
+        for (let i = 0; i < classs[0].students.length; i++) {
+            updateUserClasses(classs[0].students[i],'remove','learnings',classId)
+        }
         const { acknowledged, deletedCount } = await db.collection('classes').deleteOne({_id: classId});
         const allClasses = await db.collection('classes').find().sort({subject:1}).toArray();
         
@@ -159,6 +177,121 @@ export default function makeClassesDb({makeDb}) {
                 text: "Class not found",
                 body: null
             }
+        }
+    }
+
+    async function classReservation(operation,userId,classId) {
+        const db = await makeDb()
+        const classes = db.collection('classes')
+        const classs = await classes.findOne({"_id":classId});
+
+        //VERIFICACAO DE USER DEVE SER FEITA PELO MICROSSERVIÇO USERS
+        const res = await getUser(userId)
+        const user = res.data
+        console.log("oi",user);
+
+        let result;
+        let bookedStudent;
+        if (!classs){
+            return {
+                isBooked: false,
+                text: "Class not found",
+                body:null
+            }
+        }
+
+        bookedStudent = classs.students.find(student => student === userId );
+
+        if (operation === "book") {
+            if (classs.students.length < classs.maxStudents){
+                if (!!bookedStudent) {
+                    return {
+                        isBooked: false,
+                        text: "Student is already in this class",
+                        body: classs
+                    }
+                }
+
+                // ATUALIZAÇÃO DA BASE ALUNO DEVE SER CHAMADA VIA API DO MICROSSERVIÇO USER
+                const updateRes = await updateUserClasses(userId,'add','learnings',classId)
+                const userUpdate = updateRes.data
+                console.log(userUpdate)
+                if (userUpdate.statusCode >= 400) {
+                    throw new Error ('erro na adição do booking na API de users')
+                }
+
+                const updateClassDoc = {
+                    $push: {
+                        students: userId
+                    }
+                }
+    
+                const {modifiedCount} = await classes.updateOne({"_id":classId},updateClassDoc)
+                if (modifiedCount > 0) {
+                    const updatedClass = await classes.find({"_id": classId}).toArray()
+                    return {
+                        isBooked: true,
+                        text: "booking successfull",
+                        body: updatedClass[0]
+                    }
+                } else {
+                    return {
+                        isBooked: false,
+                        text: "booking failed",
+                        body: null
+                    }
+                }
+                
+            }
+            else {
+                return {
+                    isBooked: false,
+                    text: "booking failed, class is full.",
+                    body: classs
+                }
+            }
+        } else if (operation === "unbook") {
+            // se o estudante não tiver bookado ainda, retorna erro
+            if (!bookedStudent) {
+                return {
+                    isUnbooked: false,
+                    text: "Student is not in this class",
+                    body: null
+                }
+            }
+
+            const updateRes = await updateUserClasses(userId,'remove','learnings',classId)
+            const userUpdate = updateRes.data
+
+            if (userUpdate.statusCode >= 400) {
+                throw new Error ('erro na remoção do booking na API de users')
+            }
+
+            const updateClassDoc = {
+                $pull: {
+                    students: userId
+                }
+            }
+    
+            result = await classes.updateOne({"_id":classId},updateClassDoc).catch(err => console.log(err))
+            .then(async res => {
+                const updatedClass = await classes.find({"_id":classId}).toArray();
+                return {
+                    isUnbooked: true,
+                    text: "unbooking successfull",
+                    body: updatedClass[0]
+                }                
+            })
+            .catch(err => {
+                console.log(err);
+                return {
+                    isUnbooked: false,
+                    text: "Error on unbooking, try again later",
+                    body: err
+                }
+            });
+    
+            return result;
         }
     }
 }
