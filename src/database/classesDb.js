@@ -188,8 +188,8 @@ export default function makeClassesDb({makeDb}) {
         //VERIFICACAO DE USER DEVE SER FEITA PELO MICROSSERVIÇO USERS
         const res = await getUser(userId)
         const user = res.data
-        console.log("oi",user);
 
+        
         let result;
         let bookedStudent;
         if (!classs){

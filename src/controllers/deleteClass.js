@@ -3,7 +3,7 @@ export default function makeDeleteClass ({removeClass, Id}) {
         const { classId }  = httpRequest.body      
         
         try {
-            if (!Id.isValidId(classId)) {
+            if (!Id.isValidId(classId) || !classId) {
                 throw new Error('class Id is not valid');
             }
             const {isDeleted, text, body} = await removeClass(classId);

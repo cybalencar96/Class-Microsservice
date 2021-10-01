@@ -4,10 +4,10 @@ export default function makeBookClass ({reserveClass, Id}) {
         const { userId } = httpRequest.body
         
         try {
-            if (!Id.isValidId(classId)) {
+            if (!Id.isValidId(classId) || !classId) {
                 throw new Error('class Id is not valid');
             }
-            if (!Id.isValidId(userId)) {
+            if (!Id.isValidId(userId) || !userId) {
                 throw new Error('user Id is not valid');
             }
             const {isBooked, text, body} = await reserveClass(userId, classId);
