@@ -89,10 +89,15 @@ export default function makeClassesDb({makeDb}) {
             students: classs.getStudents()
         }
 
-        const updateRes = await updateUserClasses(newClass.teacherId,'add','teaching',newClass._id)
-        const userUpdate = updateRes.data
-        if (userUpdate.statusCode >= 400) {
-            throw new Error ('erro na inserção da classe no teaching do user na API de users')
+        try {
+            const updateRes = await updateUserClasses(newClass.teacherId,'add','teaching',newClass._id)
+        }
+        catch (err) {
+            return {
+                isCreated: false,
+                text: "Error",
+                body: `teacherId ${err.response.data.body.error}`
+            }
         }
 
         const result = await db.collection('classes').insertOne(newClass)
@@ -104,21 +109,57 @@ export default function makeClassesDb({makeDb}) {
     async function findAndDeleteClass(classId) {
         const db = await makeDb();
         const classs = await db.collection('classes').find({"_id": classId}).toArray();
-        
-        const updateTeacherRes = await updateUserClasses(classs[0].teacherId,'remove','teaching',classId)
-        if (updateTeacherRes.data.statusCode >= 400) throw new Error ('erro ao apagar classe')
-
-        for (let i = 0; i < classs[0].students.length; i++) {
-            updateUserClasses(classs[0].students[i],'remove','learnings',classId)
-        }
-        const { acknowledged, deletedCount } = await db.collection('classes').deleteOne({_id: classId});
         const allClasses = await db.collection('classes').find().sort({subject:1}).toArray();
+
+        if (!classs[0]) {
+            return {
+                isDeleted: false,
+                text: "Class doesn't exists. It may has been deleted already.",
+                body: allClasses
+            }
+        }
+        //const updateTeacherRes = 
+        try {
+            let userRes = await updateUserClasses(classs[0].teacherId,'remove','teaching',classId)
+        }
+        catch (err) {
+            return {
+                isDeleted: false,
+                text: "Error",
+                body: `teacherId ${err.response.data.body.error}`
+            }
+        }
+        let idx;
+        try {
+            for (let i = 0; i < classs[0].students.length; i++) {
+                idx = i;
+                let userRes = await updateUserClasses(classs[0].students[i],'remove','learnings',classId)
+            }
+        } 
+        catch (err) {
+            //caso dê erro, readiciona todos que tinham sido excluidos antes do erro
+            if (idx > 0 ) {
+                for (let i = 0; i < idx; i++) {
+                    updateUserClasses(classs[0].students[i],'add','learnings',classId)
+                }
+            }
+
+            return {
+                isDeleted: false,
+                text: "Error",
+                body: `On learnings array,  studentId ${err.response.data.body.error}`
+            }
+        }
+        
+
+        const { acknowledged, deletedCount } = await db.collection('classes').deleteOne({_id: classId});
+        const allClasses2 = await db.collection('classes').find().sort({subject:1}).toArray();
         
         if (acknowledged && deletedCount > 0) {
             return {
                 isDeleted: true,
                 text: "Class is deleted.",
-                body: allClasses
+                body: allClasses2
             }
         }
 
@@ -126,14 +167,14 @@ export default function makeClassesDb({makeDb}) {
             return {
                 isDeleted: false,
                 text: "Class doesn't exists. It may has been deleted already.",
-                body: allClasses
+                body: allClasses2
             }
         }
         if (!acknowledged) {
             return {
                 isDeleted: false,
                 text: "Unknown error has occured on gateway",
-                body: allClasses
+                body: allClasses2
             }
         }
     }
@@ -186,9 +227,16 @@ export default function makeClassesDb({makeDb}) {
         const classs = await classes.findOne({"_id":classId});
 
         //VERIFICACAO DE USER DEVE SER FEITA PELO MICROSSERVIÇO USERS
-        const res = await getUser(userId)
-        const user = res.data
-
+        try {
+            const res = await getUser(userId)
+        }
+        catch (err) {
+            return {
+                isBooked: false,
+                text: "Error",
+                body: err.response.data.body
+            }
+        }
         
         let result;
         let bookedStudent;
@@ -203,6 +251,13 @@ export default function makeClassesDb({makeDb}) {
         bookedStudent = classs.students.find(student => student === userId );
 
         if (operation === "book") {
+            if (classs.teacherId === userId) {
+                return {
+                    isBooked: false,
+                    text: "You are the teacher of this class",
+                    body: classs
+                }
+            }
             if (classs.students.length < classs.maxStudents){
                 if (!!bookedStudent) {
                     return {
@@ -213,11 +268,15 @@ export default function makeClassesDb({makeDb}) {
                 }
 
                 // ATUALIZAÇÃO DA BASE ALUNO DEVE SER CHAMADA VIA API DO MICROSSERVIÇO USER
-                const updateRes = await updateUserClasses(userId,'add','learnings',classId)
-                const userUpdate = updateRes.data
-                console.log(userUpdate)
-                if (userUpdate.statusCode >= 400) {
-                    throw new Error ('erro na adição do booking na API de users')
+                try {
+                    const updateRes = await updateUserClasses(userId,'add','learnings',classId)
+                }
+                catch (err) {
+                    return {
+                        isBooked: false,
+                        text: "Error",
+                        body: err.response.data.body
+                    }
                 }
 
                 const updateClassDoc = {
@@ -260,11 +319,15 @@ export default function makeClassesDb({makeDb}) {
                 }
             }
 
-            const updateRes = await updateUserClasses(userId,'remove','learnings',classId)
-            const userUpdate = updateRes.data
-
-            if (userUpdate.statusCode >= 400) {
-                throw new Error ('erro na remoção do booking na API de users')
+            try {
+                const updateRes = await updateUserClasses(userId,'remove','learnings',classId)   
+            }
+            catch (err) {
+                return {
+                    isDeleted: false,
+                    text: "Error",
+                    body: err.response.data.body
+                }
             }
 
             const updateClassDoc = {

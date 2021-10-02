@@ -4,9 +4,12 @@ export default function makeAddClass ({classesDb}) {
         const classs = makeClass(classInfo);
         const exists = await classesDb.findByTeacherAndSubject({teacherId: classs.getTeacherId(), subject: classs.getSubject()});
         if (exists) {
-            return exists
+            return {
+                text: "class already exists",
+                class:exists
+            }
         }
 
-        return classesDb.insert({...classs});
+        return classesDb.insert({...classs})
     }
 }
