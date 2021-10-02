@@ -106,7 +106,7 @@ export default function makeClassesDb({makeDb}) {
         return classInserted[0];
     }
 
-    async function findAndDeleteClass(classId) {
+    async function findAndDeleteClass(classId, userId) {
         const db = await makeDb();
         const classs = await db.collection('classes').find({"_id": classId}).toArray();
         const allClasses = await db.collection('classes').find().sort({subject:1}).toArray();
@@ -115,6 +115,14 @@ export default function makeClassesDb({makeDb}) {
             return {
                 isDeleted: false,
                 text: "Class doesn't exists. It may has been deleted already.",
+                body: allClasses
+            }
+        }
+
+        if (classs[0].teacherId !== userId) {
+            return {
+                isDeleted: false,
+                text: "Only the teacher of the class can delete it",
                 body: allClasses
             }
         }
@@ -181,14 +189,28 @@ export default function makeClassesDb({makeDb}) {
 
     async function updateClass(editedClass) {
         const db = await makeDb();
+        const classs = await db.collection('classes').find({_id: editedClass.getId()}).toArray();
+
+        if (!classs[0]) {
+            return {
+                isModified: false,
+                text: "Class doens't exists anymore",
+                body: null,
+            }
+        }
+        if (classs[0].teacherId != editedClass.getTeacherId()) {
+            return {
+                isModified: false,
+                text: "Only the owner of the class (the teacher) can edit it",
+                body: null,
+            }
+        }
         const updateDoc = {
             $set: {
                 teacherId: editedClass.getTeacherId(),
                 maxStudents: editedClass.getMaxStudents(),
                 price: editedClass.getPrice(),
-                _id: editedClass.getId(),
                 subject: editedClass.getSubject(),
-                students: editedClass.getStudents(),
                 classDates: editedClass.getClassDates()
             }
         }
@@ -204,13 +226,13 @@ export default function makeClassesDb({makeDb}) {
             return {
                 isModified: true,
                 text: "Class update successful",
-                body: newEditedClass
+                body: newEditedClass[0]
             }
         } else if (matchedCount === 1) {
             return {
                 isModified: false,
                 text: "Class found but not updated, no difference found",
-                body: newEditedClass
+                body: newEditedClass[0]
             }
         } else {
             return {

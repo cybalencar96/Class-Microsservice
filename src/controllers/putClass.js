@@ -9,7 +9,6 @@ export default function makePutClass({editClass, Id}) {
                 price,
                 _id,
                 subject,
-                students,
                 classDates
             } = classInfo
 
@@ -25,9 +24,6 @@ export default function makePutClass({editClass, Id}) {
             if (!subject) {
                 throw new Error ('ClassInfo must have subject attribute')
             }
-            if (!Array.isArray(students)) {
-                throw new Error ('Students must be an array')
-            }
             if (!classDates) {
                 throw new Error ('ClassInfo must have classDates attribute')
             }
@@ -36,7 +32,7 @@ export default function makePutClass({editClass, Id}) {
             return {
                 statusCode: isModified ? 200 : 401,
                 text,
-                body
+                body,
             };
         }
         catch (e) {

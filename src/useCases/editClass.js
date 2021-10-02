@@ -2,10 +2,10 @@ import makeClass from "../class/index.js";
 export default function makeEditClass ({classesDb}) {
     return async function editClass(classInfo) {
         const editedClass = makeClass({
+            _id: classInfo._id,
             teacherId: classInfo.teacherId,
             maxStudents: classInfo.maxStudents,
             price: classInfo.price,
-            _id: classInfo._id,
             subject: classInfo.subject,
             students: classInfo.students,
             classDates: classInfo.classDates
@@ -14,7 +14,7 @@ export default function makeEditClass ({classesDb}) {
         return {
             isModified,
             text,
-            body
+            body,
         };
     }
 }
