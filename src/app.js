@@ -7,7 +7,7 @@ import cors from 'cors'
 dotenv.config();
 
 const app = express();
-const port = 3000
+const port = process.env.PORT || 5000
 const {
     postClass, 
     getClasses, 
@@ -32,3 +32,6 @@ app.post('/classes/:id/unbook',makeCallback(unbookClass))
 app.listen(port,() => {
     console.log('Server is running at port ' + port);
 });
+
+//HEROKU APP
+//https://fathomless-coast-56337.herokuapp.com/
