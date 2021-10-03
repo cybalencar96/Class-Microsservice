@@ -28,11 +28,11 @@ export default function makePutClass({editClass, Id}) {
                 throw new Error ('ClassInfo must have classDates attribute')
             }
 
-            const {isModified, text, body} = await editClass({...classInfo});
+            const {isModified, text, editedClass} = await editClass({...classInfo});
             return {
                 statusCode: isModified ? 200 : 401,
                 text,
-                body,
+                editedClass,
             };
         }
         catch (e) {

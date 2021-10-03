@@ -1,7 +1,18 @@
 import makeClass from "../class/index.js";
 export default function makeEditClass ({classesDb}) {
     return async function editClass(classInfo) {
-        const editedClass = makeClass({
+
+        const classs = await classesDb.findByClassId(classInfo._id)
+
+        if(!classs) {
+            throw new Error ('Class not found')
+        }
+
+        if (classs.teacherId !== classInfo.teacherId) {
+            throw new Error ("Only the teacher can edit it")
+        }
+
+        const toUpdateClass = makeClass({
             _id: classInfo._id,
             teacherId: classInfo.teacherId,
             maxStudents: classInfo.maxStudents,
@@ -10,11 +21,11 @@ export default function makeEditClass ({classesDb}) {
             students: classInfo.students,
             classDates: classInfo.classDates
         })
-        const {isModified, text, body} = await classesDb.updateClass(editedClass);
+        const {isModified, text, editedClass} = await classesDb.updateClass(toUpdateClass);
         return {
             isModified,
             text,
-            body,
+            editedClass,
         };
     }
 }

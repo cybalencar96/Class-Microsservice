@@ -9,7 +9,7 @@ export default function makeClassesDb({makeDb}) {
         findBySubject,
         findByTeacherAndSubject,
         insert,
-        findAndDeleteClass,
+        deleteClass,
         updateClass,
         classReservation
     });
@@ -41,12 +41,11 @@ export default function makeClassesDb({makeDb}) {
             return result;
         }
 
-        const result = await db.collection('classes').find({ _id: searchInfo })
-        const found = await result.toArray();
-        if (found.length === 0) {
+        const result = await db.collection('classes').find({ _id: searchInfo }).toArray();
+        if (!result[0]) {
             return null
         }
-        return found[0]
+        return result[0]
     }
 
     async function findByTeacherId(searchInfo) {
@@ -93,11 +92,7 @@ export default function makeClassesDb({makeDb}) {
             const updateRes = await updateUserClasses(newClass.teacherId,'add','teaching',newClass._id)
         }
         catch (err) {
-            return {
-                isCreated: false,
-                text: "Error",
-                body: `teacherId ${err.response.data.body.error}`
-            }
+            throw new Error (`teacherId ${err.response.data.body.error}`)
         }
 
         const result = await db.collection('classes').insertOne(newClass)
@@ -106,37 +101,19 @@ export default function makeClassesDb({makeDb}) {
         return classInserted[0];
     }
 
-    async function findAndDeleteClass(classId, userId) {
+    async function deleteClass(classId, userId) {
         const db = await makeDb();
         const classs = await db.collection('classes').find({"_id": classId}).toArray();
         const allClasses = await db.collection('classes').find().sort({subject:1}).toArray();
 
-        if (!classs[0]) {
-            return {
-                isDeleted: false,
-                text: "Class doesn't exists. It may has been deleted already.",
-                body: allClasses
-            }
-        }
-
-        if (classs[0].teacherId !== userId) {
-            return {
-                isDeleted: false,
-                text: "Only the teacher of the class can delete it",
-                body: allClasses
-            }
-        }
         //const updateTeacherRes = 
         try {
             let userRes = await updateUserClasses(classs[0].teacherId,'remove','teaching',classId)
         }
         catch (err) {
-            return {
-                isDeleted: false,
-                text: "Error",
-                body: `teacherId ${err.response.data.body.error}`
-            }
+            throw new Error (`teacherId ${err.response.data.body.error}`)
         }
+
         let idx;
         try {
             for (let i = 0; i < classs[0].students.length; i++) {
@@ -151,18 +128,14 @@ export default function makeClassesDb({makeDb}) {
                     updateUserClasses(classs[0].students[i],'add','learnings',classId)
                 }
             }
-
-            return {
-                isDeleted: false,
-                text: "Error",
-                body: `On learnings array,  studentId ${err.response.data.body.error}`
-            }
+            throw new Error (`On learnings array,  studentId ${err.response.data.body.error}`)
         }
         
 
         const { acknowledged, deletedCount } = await db.collection('classes').deleteOne({_id: classId});
         const allClasses2 = await db.collection('classes').find().sort({subject:1}).toArray();
         
+
         if (acknowledged && deletedCount > 0) {
             return {
                 isDeleted: true,
@@ -189,22 +162,7 @@ export default function makeClassesDb({makeDb}) {
 
     async function updateClass(editedClass) {
         const db = await makeDb();
-        const classs = await db.collection('classes').find({_id: editedClass.getId()}).toArray();
 
-        if (!classs[0]) {
-            return {
-                isModified: false,
-                text: "Class doens't exists anymore",
-                body: null,
-            }
-        }
-        if (classs[0].teacherId != editedClass.getTeacherId()) {
-            return {
-                isModified: false,
-                text: "Only the owner of the class (the teacher) can edit it",
-                body: null,
-            }
-        }
         const updateDoc = {
             $set: {
                 teacherId: editedClass.getTeacherId(),
@@ -214,6 +172,7 @@ export default function makeClassesDb({makeDb}) {
                 classDates: editedClass.getClassDates()
             }
         }
+
         const {
             acknowledged,
             modifiedCount,
@@ -226,23 +185,24 @@ export default function makeClassesDb({makeDb}) {
             return {
                 isModified: true,
                 text: "Class update successful",
-                body: newEditedClass[0]
+                editedClass: newEditedClass[0]
             }
         } else if (matchedCount === 1) {
             return {
                 isModified: false,
                 text: "Class found but not updated, no difference found",
-                body: newEditedClass[0]
+                editedClass: newEditedClass[0]
             }
         } else {
             return {
                 isModified: false,
                 text: "Class not found",
-                body: null
+                editedClass: null
             }
         }
     }
 
+    //"O" OPEN CLOSED PRINCIPLE - Função se extendeu para atividades de reserva
     async function classReservation(operation,userId,classId) {
         const db = await makeDb()
         const classes = db.collection('classes')
@@ -255,100 +215,57 @@ export default function makeClassesDb({makeDb}) {
         catch (err) {
             return {
                 isBooked: false,
-                text: "Error",
-                body: err.response.data.body
+                text: `[Error] - ${err.response.data.body}`,
+                bookedClass: null
             }
         }
         
         let result;
         let bookedStudent;
-        if (!classs){
-            return {
-                isBooked: false,
-                text: "Class not found",
-                body:null
-            }
-        }
 
         bookedStudent = classs.students.find(student => student === userId );
 
         if (operation === "book") {
-            if (classs.teacherId === userId) {
+
+            // ATUALIZAÇÃO DA BASE ALUNO DEVE SER CHAMADA VIA API DO MICROSSERVIÇO USER
+            try {
+                const updateRes = await updateUserClasses(userId,'add','learnings',classId)
+            }
+            catch (err) {
+                throw new Error (err.response.data.body)
+            }
+
+            const updateClassDoc = {
+                $push: {
+                    students: userId
+                }
+            }
+
+            const {modifiedCount} = await classes.updateOne({"_id":classId},updateClassDoc)
+            if (modifiedCount > 0) {
+                const updatedClass = await classes.find({"_id": classId}).toArray()
+                return {
+                    isBooked: true,
+                    text: "booking successfull",
+                    bookedClass: updatedClass[0]
+                }
+            } else {
                 return {
                     isBooked: false,
-                    text: "You are the teacher of this class",
-                    body: classs
+                    text: "booking failed",
+                    bookedClass: null
                 }
             }
-            if (classs.students.length < classs.maxStudents){
-                if (!!bookedStudent) {
-                    return {
-                        isBooked: false,
-                        text: "Student is already in this class",
-                        body: classs
-                    }
-                }
 
-                // ATUALIZAÇÃO DA BASE ALUNO DEVE SER CHAMADA VIA API DO MICROSSERVIÇO USER
-                try {
-                    const updateRes = await updateUserClasses(userId,'add','learnings',classId)
-                }
-                catch (err) {
-                    return {
-                        isBooked: false,
-                        text: "Error",
-                        body: err.response.data.body
-                    }
-                }
-
-                const updateClassDoc = {
-                    $push: {
-                        students: userId
-                    }
-                }
-    
-                const {modifiedCount} = await classes.updateOne({"_id":classId},updateClassDoc)
-                if (modifiedCount > 0) {
-                    const updatedClass = await classes.find({"_id": classId}).toArray()
-                    return {
-                        isBooked: true,
-                        text: "booking successfull",
-                        body: updatedClass[0]
-                    }
-                } else {
-                    return {
-                        isBooked: false,
-                        text: "booking failed",
-                        body: null
-                    }
-                }
-                
-            }
-            else {
-                return {
-                    isBooked: false,
-                    text: "booking failed, class is full.",
-                    body: classs
-                }
-            }
         } else if (operation === "unbook") {
-            // se o estudante não tiver bookado ainda, retorna erro
-            if (!bookedStudent) {
-                return {
-                    isUnbooked: false,
-                    text: "Student is not in this class",
-                    body: null
-                }
-            }
-
             try {
                 const updateRes = await updateUserClasses(userId,'remove','learnings',classId)   
             }
             catch (err) {
                 return {
                     isDeleted: false,
-                    text: "Error",
-                    body: err.response.data.body
+                    text: `[Error] - ${err.response.data.body}`,
+                    unbookedClass: null
                 }
             }
 
@@ -364,7 +281,7 @@ export default function makeClassesDb({makeDb}) {
                 return {
                     isUnbooked: true,
                     text: "unbooking successfull",
-                    body: updatedClass[0]
+                    unbookedClass: updatedClass[0]
                 }                
             })
             .catch(err => {
@@ -372,7 +289,7 @@ export default function makeClassesDb({makeDb}) {
                 return {
                     isUnbooked: false,
                     text: "Error on unbooking, try again later",
-                    body: err
+                    unbookedClass: err
                 }
             });
     

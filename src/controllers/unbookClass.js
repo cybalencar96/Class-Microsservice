@@ -10,12 +10,12 @@ export default function makeUnbookClass ({removeReserveClass, Id}) {
             if (!Id.isValidId(userId) || !userId) {
                 throw new Error('user Id is not valid');
             }
-            const {isUnbooked, text, body} = await removeReserveClass(userId, classId);
+            const {isUnbooked, text, unbookedClass} = await removeReserveClass(userId, classId);
 
             return {
                 statusCode: isUnbooked ? 200 : 401,
                 text,
-                body
+                unbookedClass
             }
         }
         catch (e) {
