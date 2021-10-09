@@ -2,8 +2,12 @@ import axios from 'axios'
 
 axios.defaults.baseURL = "https://fierce-savannah-13251.herokuapp.com/"
 
+function signUser(userInfo) {
+    return axios.post('/user/signin',userInfo)
+}
+
 function validateUser({username, password}) {
-    return axios.post('/login',{username: username, password:password})
+    return axios.post('/user/login',{username: username, password:password})
 }
 
 function getUser(userId) {
@@ -23,6 +27,7 @@ function updateUserClasses(userId, action, classType, classId) {
 
 export {
     validateUser,
+    signUser,
     getUser,
     updateUserClasses
 }

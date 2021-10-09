@@ -1,7 +1,7 @@
 import Id from "../Id/index.js"
 import { validateUser,getUser,updateUserClasses } from "../services/usersApi.js";
 
-export default function makeClassesDb({makeDb}) {
+export default function makeClassesDb({makeDb}) { 
     return Object.freeze({
         findAll,
         findByClassId,
