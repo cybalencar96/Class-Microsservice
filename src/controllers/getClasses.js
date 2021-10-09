@@ -3,8 +3,8 @@ import Id from "../Id/index.js";
 export default function makeGetClasses({ listClasses, Id }) {
     return async function getClasses(httpRequest) {
         const type = httpRequest.query.type
-        const searchInfo  = httpRequest.query.searchInfo
-        
+        let searchInfo = httpRequest.query.searchInfo ? JSON.parse(decodeURIComponent(httpRequest.query.searchInfo)) : null
+        if (searchInfo && searchInfo.length === 1) searchInfo = searchInfo[0]
         const headers = {
             'Content-Type': 'application/json'
         }
