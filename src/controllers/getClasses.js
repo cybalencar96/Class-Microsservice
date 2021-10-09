@@ -2,7 +2,9 @@ import Id from "../Id/index.js";
 
 export default function makeGetClasses({ listClasses, Id }) {
     return async function getClasses(httpRequest) {
-        const { type, searchInfo } = httpRequest.body
+        const type = httpRequest.query.type
+        const searchInfo  = httpRequest.query.searchInfo
+        
         const headers = {
             'Content-Type': 'application/json'
         }
