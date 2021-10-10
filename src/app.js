@@ -24,7 +24,10 @@ app.get('/', (req,res) => res.send('hello world'))
 
 app.post('/classes',makeCallback(postClass))
 app.get('/classes',makeCallback(getClasses))
-app.delete('/classes',makeCallback(deleteClass))
+app.delete('/classes', (req,res) => {
+    res.status(200).send(req.body)
+    //makeCallback(deleteClass)
+})
 app.put('/classes',makeCallback(putClass))
 app.post('/classes/:id/book',makeCallback(bookClass))
 app.post('/classes/:id/unbook',makeCallback(unbookClass))
